@@ -1,111 +1,274 @@
 import 'package:flutter/material.dart';
+import 'package:geolocator/geolocator.dart';
+import 'package:intl/intl.dart';
+import 'package:weatherapp/service/weather_services.dart';
+import 'Widget/weather_data_tile.dart';
 
 void main() {
-  runApp(const MyApp());
+  runApp(WeatherApp());
 }
 
-class MyApp extends StatelessWidget {
-  const MyApp({super.key});
-
-  // This widget is the root of your application.
+class WeatherApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Flutter Demo',
-      debugShowCheckedModeBanner: false,
-      theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
-        useMaterial3: true,
-      ),
-      home: const MyHomePage(title: 'Flutter Demo Home Page'),
+      home: WeatherPage(),
     );
   }
 }
 
-class MyHomePage extends StatefulWidget {
-  const MyHomePage({super.key, required this.title});
-
-  // This widget is the home page of your application. It is stateful, meaning
-  // that it has a State object (defined below) that contains fields that affect
-  // how it looks.
-
-  // This class is the configuration for the state. It holds the values (in this
-  // case the title) provided by the parent (in this case the App widget) and
-  // used by the build method of the State. Fields in a Widget subclass are
-  // always marked "final".
-
-  final String title;
-
+class WeatherPage extends StatefulWidget {
   @override
-  State<MyHomePage> createState() => _MyHomePageState();
+  State<StatefulWidget> createState() => WeatherPageState();
 }
 
-class _MyHomePageState extends State<MyHomePage> {
-  int _counter = 0;
+class WeatherPageState extends State<WeatherPage> {
+  final TextEditingController _controller = TextEditingController();
+  String _bgImg = 'assets/images/clear.jpg';
+  String _iconImg = 'assets/icons/Clear.png';
+  String _cityName = '';
+  String _temperature = '';
+  String _tempMax = '';
+  String _tempMin = '';
+  String _sunrise = '';
+  String _sunset = '';
+  String _main = '';
+  String _presure = '';
+  String _humidity = '';
+  String _visibility = '';
+  String _windSpeed = '';
 
-  void _incrementCounter() {
-    setState(() {
-      // This call to setState tells the Flutter framework that something has
-      // changed in this State, which causes it to rerun the build method below
-      // so that the display can reflect the updated values. If we changed
-      // _counter without calling setState(), then the build method would not be
-      // called again, and so nothing would appear to happen.
-      _counter++;
-    });
+  @override
+  void initState() {
+    super.initState();
+    _checkLocationPermission();
+  }
+
+  getData(String cityName) async {
+    final weatherService = WeatherService();
+    var weatherData;
+    try {
+      if (cityName.isEmpty) {
+        weatherData = await weatherService.fetchWeather();
+      } else {
+        weatherData = await weatherService.getWeather(cityName);
+      }
+
+      if (weatherData == null || weatherData.isEmpty) {
+        debugPrint("No weather data available.");
+        return;
+      }
+
+      debugPrint(weatherData.toString());
+      setState(() {
+        _cityName = weatherData['name'];
+        _temperature = weatherData['main']['temp'].toStringAsFixed(1);
+        _main = weatherData['weather'][0]['main'];
+        _tempMax = weatherData['main']['temp_max'].toStringAsFixed(1);
+        _tempMin = weatherData['main']['temp_min'].toStringAsFixed(1);
+        _sunrise = DateFormat('hh:mm a').format(
+            DateTime.fromMillisecondsSinceEpoch(
+                weatherData['sys']['sunrise'] * 1000));
+        _sunset = DateFormat('hh:mm a').format(
+            DateTime.fromMillisecondsSinceEpoch(
+                weatherData['sys']['sunset'] * 1000));
+        _presure = weatherData['main']['pressure'].toString();
+        _humidity = weatherData['main']['humidity'].toString();
+        _visibility = weatherData['visibility'].toString();
+        _windSpeed = weatherData['wind']['speed'].toString();
+        _updateWeatherImages(_main);
+      });
+    } catch (e) {
+      debugPrint("Error fetching weather data: $e");
+    }
+  }
+
+  void _updateWeatherImages(String weatherMain) {
+    switch (weatherMain) {
+      case 'Clear':
+        _bgImg = 'assets/images/clear.jpg';
+        _iconImg = 'assets/icons/Clear.png';
+        break;
+      case 'Clouds':
+        _bgImg = 'assets/images/clouds.jpg';
+        _iconImg = 'assets/icons/Clouds.png';
+        break;
+      case 'Rain':
+        _bgImg = 'assets/images/rain.jpg';
+        _iconImg = 'assets/icons/Rain.png';
+        break;
+      case 'Fog':
+        _bgImg = 'assets/images/fog.jpg';
+        _iconImg = 'assets/icons/Haze.png';
+        break;
+      case 'Thunderstorm':
+        _bgImg = 'assets/images/thunderstorm.jpg';
+        _iconImg = 'assets/icons/Thunderstorm.png';
+        break;
+      default:
+        _bgImg = 'assets/images/haze.jpg';
+        _iconImg = 'assets/icons/Haze.png';
+        break;
+    }
+  }
+
+  Future<bool> _checkLocationPermission() async {
+    LocationPermission permission = await Geolocator.checkPermission();
+    if (permission == LocationPermission.denied) {
+      permission = await Geolocator.requestPermission();
+      if (permission == LocationPermission.denied) {
+        return false;
+      }
+    }
+    getData('');
+    return true;
   }
 
   @override
   Widget build(BuildContext context) {
-    // This method is rerun every time setState is called, for instance as done
-    // by the _incrementCounter method above.
-    //
-    // The Flutter framework has been optimized to make rerunning build methods
-    // fast, so that you can just rebuild anything that needs updating rather
-    // than having to individually change instances of widgets.
     return Scaffold(
-      appBar: AppBar(
-        // TRY THIS: Try changing the color here to a specific color (to
-        // Colors.amber, perhaps?) and trigger a hot reload to see the AppBar
-        // change color while the other colors stay the same.
-        backgroundColor: Theme.of(context).colorScheme.inversePrimary,
-        // Here we take the value from the MyHomePage object that was created by
-        // the App.build method, and use it to set our appbar title.
-        title: Text(widget.title),
-      ),
-      body: Center(
-        // Center is a layout widget. It takes a single child and positions it
-        // in the middle of the parent.
-        child: Column(
-          // Column is also a layout widget. It takes a list of children and
-          // arranges them vertically. By default, it sizes itself to fit its
-          // children horizontally, and tries to be as tall as its parent.
-          //
-          // Column has various properties to control how it sizes itself and
-          // how it positions its children. Here we use mainAxisAlignment to
-          // center the children vertically; the main axis here is the vertical
-          // axis because Columns are vertical (the cross axis would be
-          // horizontal).
-          //
-          // TRY THIS: Invoke "debug painting" (choose the "Toggle Debug Paint"
-          // action in the IDE, or press "p" in the console), to see the
-          // wireframe for each widget.
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: <Widget>[
-            const Text(
-              'You have pushed the button this many times:',
+      body: Stack(
+        children: [
+          Image.asset(
+            _bgImg,
+            fit: BoxFit.cover,
+            width: double.infinity,
+            height: double.infinity,
+          ),
+          Padding(
+            padding: EdgeInsets.all(15),
+            child: SingleChildScrollView(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  SizedBox(
+                    height: 40,
+                  ),
+                  TextField(
+                    controller: _controller,
+                    onChanged: (value) {
+                      getData(value);
+                    },
+                    decoration: const InputDecoration(
+                      suffixIcon: Icon(Icons.search),
+                      filled: true,
+                      fillColor: Colors.black26,
+                      hintText: 'Enter city name',
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.all(Radius.circular(16)),
+                      ),
+                    ),
+                  ),
+                  SizedBox(height: 15),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.location_on),
+                      Text(
+                        _cityName,
+                        style: const TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      )
+                    ],
+                  ),
+                  SizedBox(
+                    height: 50,
+                  ),
+                  Text(
+                    '$_temperature°c',
+                    style: const TextStyle(
+                      color: Colors.black,
+                      fontSize: 90,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  Row(
+                    children: [
+                      Text(
+                        _main,
+                        style: const TextStyle(
+                          fontSize: 40,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                      Image.asset(
+                        _iconImg,
+                        height: 80,
+                      )
+                    ],
+                  ),
+                  const SizedBox(
+                    height: 25,
+                  ),
+                  Row(
+                    children: [
+                      const Icon(Icons.arrow_upward),
+                      Text(
+                        '$_tempMax°c',
+                        style: TextStyle(
+                          fontSize: 22,
+                          fontStyle: FontStyle.italic,
+                        ),
+                      ),
+                      const Icon(Icons.arrow_downward),
+                      Text(
+                        '$_tempMin°c',
+                        style: TextStyle(
+                          fontSize: 22,
+                          fontStyle: FontStyle.italic,
+                        ),
+                      )
+                    ],
+                  ),
+                  const SizedBox(
+                    height: 25,
+                  ),
+                  Card(
+                    elevation: 5,
+                    color: Colors.transparent,
+                    child: Padding(
+                      padding: EdgeInsets.all(15),
+                      child: Column(
+                        children: [
+                          WeatherDataTile(
+                            index1: "Sunrise",
+                            index2: "Sunset",
+                            value1: _sunrise,
+                            value2: _sunset,
+                          ),
+                          SizedBox(
+                            height: 15,
+                          ),
+                          WeatherDataTile(
+                            index1: "Humidity",
+                            index2: "Visibility",
+                            value1: _humidity,
+                            value2: _visibility,
+                          ),
+                          SizedBox(
+                            height: 15,
+                          ),
+                          WeatherDataTile(
+                            index1: "Pressure",
+                            index2: "Wind speed",
+                            value1: _presure,
+                            value2: _windSpeed,
+                          ),
+                          SizedBox(
+                            height: 15,
+                          ),
+                        ],
+                      ),
+                    ),
+                  )
+                ],
+              ),
             ),
-            Text(
-              '$_counter',
-              style: Theme.of(context).textTheme.headlineMedium,
-            ),
-          ],
-        ),
+          )
+        ],
       ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: _incrementCounter,
-        tooltip: 'Increment',
-        child: const Icon(Icons.add),
-      ), // This trailing comma makes auto-formatting nicer for build methods.
     );
   }
 }
